@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#4f46e5">
+<title>منبه الدروس</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body{font-family:'Cairo',sans-serif;background:#f3f4f6;-webkit-tap-highlight-color:transparent;margin:0}
+  .hide-scrollbar::-webkit-scrollbar{display:none}
+  .hide-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+  #app-container{width:100%;height:100dvh;background:#f9fafb;display:flex;flex-direction:column;overflow:hidden;margin:0 auto;position:relative}
+  @media (min-width:640px){
+    #app-container{max-width:400px;height:90vh;margin-top:5vh;border-radius:2.5rem;box-shadow:0 25px 50px -12px rgba(0,0,0,.25);border:8px solid #111827}
+  }
+  @keyframes ring{0%,100%{transform:rotate(0)}25%{transform:rotate(-12deg)}75%{transform:rotate(12deg)}}
+  .ringing{animation:ring .5s ease-in-out infinite}
+</style>
+</head>
+<body>
+<div id="app-container">
+
+  <header class="bg-indigo-600 text-white px-6 pb-5 rounded-b-3xl shadow-md z-10 flex-shrink-0" style="padding-top:max(2rem,env(safe-area-inset-top))">
+    <h1 class="text-2xl font-bold text-center">جدول دروسي 📚</h1>
+    <p class="text-indigo-200 text-center text-sm mt-1">منبه الدروس</p>
+  </header>
+
+  <!-- بانر التنبيه داخل الصفحة -->
+  <div id="alert-banner" class="hidden absolute top-24 inset-x-4 z-40 bg-amber-400 text-gray-900 rounded-2xl shadow-xl p-4 flex items-center justify-between gap-3" role="alert">
+    <div class="flex items-center gap-3">
+      <span class="text-3xl ringing">🔔</span>
+      <p id="alert-text" class="font-bold"></p>
+    </div>
+    <button id="alert-close" class="bg-gray-900 text-white rounded-full px-4 py-2 text-sm font-bold">إغلاق</button>
+  </div>
+
+  <!-- الإعدادات -->
+  <div id="view-schedule" class="flex-1 flex flex-col min-h-0">
+  <button id="tip-today" class="mx-4 mt-4 text-start bg-gradient-to-l from-indigo-500 to-violet-500 text-white rounded-2xl p-3 shadow flex gap-3 items-center flex-shrink-0">
+    <span class="text-2xl">💡</span>
+    <span class="min-w-0"><span class="block text-xs opacity-80 font-semibold">نصيحة اليوم</span><span id="tip-today-text" class="block text-sm font-bold leading-6 line-clamp-2"></span></span>
+  </button>
+  <section class="px-4 mt-3 flex-shrink-0 space-y-2">
+    <div class="flex items-center gap-2">
+      <label for="lead" class="text-sm font-bold text-gray-600 flex-shrink-0">نبّهني قبل الدرس بـ</label>
+      <select id="lead" class="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm font-semibold">
+        <option value="0">في موعد الدرس</option>
+        <option value="5">5 دقائق</option>
+        <option value="10">10 دقائق</option>
+        <option value="15">15 دقيقة</option>
+        <option value="30">30 دقيقة</option>
+      </select>
+    </div>
+    <div class="flex gap-2">
+      <button id="btn-notify" class="flex-1 bg-indigo-100 text-indigo-700 rounded-xl py-2 text-sm font-bold">تفعيل الإشعارات</button>
+      <button id="btn-test" class="flex-1 bg-white border border-gray-200 text-gray-700 rounded-xl py-2 text-sm font-bold">تجربة الصوت 🔊</button>
+    </div>
+    <p id="web-note" class="text-xs text-gray-500 leading-5">⚠️ المنبه يعمل ما دامت الصفحة مفتوحة في المتصفح.</p>
+  </section>
+
+  <nav class="px-4 mt-3 flex-shrink-0" aria-label="أيام الأسبوع">
+    <div id="days-container" class="flex overflow-x-auto pb-2 gap-2 hide-scrollbar"></div>
+  </nav>
+
+  <main id="lessons-container" class="flex-1 overflow-y-auto p-4 space-y-4" style="padding-bottom:max(2rem,env(safe-area-inset-bottom))"></main>
+  </div>
+
+  <div id="view-tips" class="hidden flex-1 overflow-y-auto p-4 space-y-4">
+    <div class="rounded-3xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white p-5 shadow-lg">
+      <div class="flex items-center justify-between">
+        <span id="tf-cat" class="bg-white/20 rounded-full px-3 py-1 text-xs font-bold"></span>
+        <span id="tf-count" class="text-xs opacity-80"></span>
+      </div>
+      <p id="tf-text" class="text-lg font-bold leading-8 mt-4 min-h-[8rem] transition-opacity duration-300"></p>
+      <div class="h-1 bg-white/20 rounded-full mt-3 overflow-hidden"><div id="tf-bar" class="h-full bg-white" style="width:0"></div></div>
+      <div class="flex items-center justify-between mt-3">
+        <button id="tf-prev" aria-label="النصيحة السابقة" class="w-10 h-10 rounded-full bg-white/20 text-xl">›</button>
+        <button id="tf-play" aria-label="إيقاف/تشغيل التبديل التلقائي" class="w-10 h-10 rounded-full bg-white/20">⏸</button>
+        <button id="tf-next" aria-label="النصيحة التالية" class="w-10 h-10 rounded-full bg-white/20 text-xl">‹</button>
+      </div>
+    </div>
+    <div id="tip-chips" class="flex gap-2 overflow-x-auto pb-1 hide-scrollbar"></div>
+    <div id="tip-list" class="space-y-3 pb-4"></div>
+  </div>
+
+  <nav class="flex-shrink-0 grid grid-cols-2 bg-white border-t border-gray-200" style="padding-bottom:env(safe-area-inset-bottom)" aria-label="التنقل">
+    <button data-tab="schedule" class="tab-btn py-3 text-sm font-bold">📅 الجدول</button>
+    <button data-tab="tips" class="tab-btn py-3 text-sm font-bold">💡 النصائح</button>
+  </nav>
+</div>
+
+<script>
+/* ---------- البيانات (الوقت بنظام 24 ساعة ليسهل حساب التنبيه) ---------- */
+const initialSchedule = [
+  { id: 1,  day: 'السبت',   subject: 'اللغة العربية',        t: '13:00', type: 'arabic'  },
+  { id: 2,  day: 'الأحد',   subject: 'العلوم',               t: '16:00', type: 'science' },
+  { id: 3,  day: 'الأحد',   subject: 'الدراسات الاجتماعية',  t: '17:00', type: 'social'  },
+  { id: 4,  day: 'الاثنين', subject: 'الرياضيات',            t: '16:00', type: 'math'    },
+  { id: 5,  day: 'الاثنين', subject: 'اللغة الإنجليزية',     t: '17:00', type: 'english' },
+  { id: 6,  day: 'الأربعاء',subject: 'اللغة العربية',        t: '14:00', type: 'arabic'  },
+  { id: 7,  day: 'الأربعاء',subject: 'العلوم',               t: '15:00', type: 'science' },
+  { id: 8,  day: 'الأربعاء',subject: 'الدراسات الاجتماعية',  t: '17:00', type: 'social'  },
+  { id: 9,  day: 'الخميس',  subject: 'الرياضيات',            t: '17:00', type: 'math'    },
+  { id: 10, day: 'الجمعة',  subject: 'اللغة العربية',        t: '08:00', type: 'arabic'  },
+  { id: 11, day: 'الجمعة',  subject: 'العلوم',               t: '10:00', type: 'science' },
+  { id: 12, day: 'الجمعة',  subject: 'اللغة الإنجليزية',     t: '14:00', type: 'english' },
+];
+const days = ['الكل','السبت','الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة'];
+const dayByGetDay = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت']; // Date.getDay()
+
+/* ---------- الحفظ (مع حماية من أخطاء localStorage) ---------- */
+const KEY = 'lessonAlarm.v2';
+function loadState(){
+  try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; }
+}
+function saveState(){
+  try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+}
+const state = Object.assign({ alarms: {}, lead: 10, fired: {} }, loadState());
+const isActive = id => state.alarms[id] !== false;      // الافتراضي: مفعّل
+const schedule = initialSchedule;
+
+let selectedDay = dayByGetDay[new Date().getDay()];
+if (!days.includes(selectedDay) || selectedDay === 'الثلاثاء') selectedDay = 'الكل';
+
+/* ---------- أدوات ---------- */
+const subjects = {
+  arabic:  { emoji: '📖', color: 'text-emerald-600', bg: 'bg-emerald-100' },
+  science: { emoji: '🧪', color: 'text-blue-600',    bg: 'bg-blue-100' },
+  math:    { emoji: '🧮', color: 'text-red-600',     bg: 'bg-red-100' },
+  english: { emoji: '🔤', color: 'text-purple-600',  bg: 'bg-purple-100' },
+  social:  { emoji: '🌍', color: 'text-orange-600',  bg: 'bg-orange-100' },
+};
+const bellOn  = '<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>';
+const bellOff = '<svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.7 3A6 6 0 0 1 18 8c0 2.7.5 4.6 1.1 6"/><path d="M17 17H3s3-2 3-9c0-.7.1-1.3.3-1.9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></svg>';
+
+function fmtTime(t){
+  const [h, m] = t.split(':').map(Number);
+  return `${h % 12 || 12}:${String(m).padStart(2,'0')} ${h < 12 ? 'صباحاً' : 'مساءً'}`;
+}
+function esc(s){ const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+/* ---------- الرسم ---------- */
+function renderDays(){
+  const c = document.getElementById('days-container');
+  c.innerHTML = '';
+  days.forEach(day => {
+    const b = document.createElement('button');
+    b.textContent = day;
+    b.className = 'flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold shadow-sm transition-colors ' +
+      (selectedDay === day ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200');
+    b.onclick = () => { selectedDay = day; renderDays(); renderLessons(); };
+    c.appendChild(b);
+  });
+}
+
+function renderLessons(){
+  const c = document.getElementById('lessons-container');
+  const list = (selectedDay === 'الكل' ? schedule : schedule.filter(l => l.day === selectedDay))
+    .slice().sort((a,b) => days.indexOf(a.day) - days.indexOf(b.day) || a.t.localeCompare(b.t));
+
+  if (!list.length) {
+    c.innerHTML = selectedDay === 'الثلاثاء'
+      ? '<div class="text-center text-gray-500 mt-10"><div class="text-5xl mb-3">🎉</div><p class="text-lg font-bold">يوم إجازة! لا توجد دروس</p></div>'
+      : '<p class="text-center text-gray-400 mt-10">لا توجد دروس في هذا اليوم.</p>';
+    return;
+  }
+  c.innerHTML = list.map(l => {
+    const s = subjects[l.type] || subjects.arabic;
+    const on = isActive(l.id);
+    return `
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 ${s.bg} ${s.color} rounded-2xl flex items-center justify-center text-3xl">${s.emoji}</div>
+        <div>
+          <h3 class="font-bold text-gray-800 text-lg">${esc(l.subject)}</h3>
+          <div class="flex items-center text-gray-500 text-sm mt-1 gap-3 font-semibold">
+            <span>📅 ${esc(l.day)}</span>
+            <span class="text-indigo-600">🕒 ${fmtTime(l.t)}</span>
+          </div>
+        </div>
+      </div>
+      <button data-id="${l.id}" aria-label="${on ? 'إيقاف' : 'تفعيل'} منبه ${esc(l.subject)}" aria-pressed="${on}"
+        class="alarm-btn w-12 h-12 rounded-full flex items-center justify-center transition-colors ${on ? 'bg-indigo-100 text-indigo-600' : 'bg-gray-100 text-gray-400'}">
+        ${on ? bellOn : bellOff}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('lessons-container').addEventListener('click', e => {
+  const btn = e.target.closest('.alarm-btn');
+  if (!btn) return;
+  const id = Number(btn.dataset.id);
+  state.alarms[id] = !isActive(id);
+  saveState(); syncNative();
+  renderLessons();
+  const l = schedule.find(x => x.id === id);
+  showToast(`منبه ${l.subject}: ${isActive(id) ? 'تم التفعيل' : 'تم الإيقاف'}`);
+});
+
+function showToast(msg){
+  const t = document.createElement('div');
+  t.className = 'fixed left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg z-50 text-sm font-bold transition-opacity duration-300';
+  t.style.bottom = 'max(2.5rem, env(safe-area-inset-bottom))';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2000);
+}
+
+/* ---------- الصوت والتنبيه الفعلي ---------- */
+let audioCtx;
+function unlockAudio(){
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch {}
+}
+document.addEventListener('click', unlockAudio, { once: true });
+
+function beep(times = 3){
+  unlockAudio();
+  if (!audioCtx) return;
+  for (let i = 0; i < times; i++) {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    const t0 = audioCtx.currentTime + i * 0.6;
+    o.frequency.value = 880; o.type = 'sine';
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.4, t0 + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.45);
+    o.connect(g).connect(audioCtx.destination);
+    o.start(t0); o.stop(t0 + 0.5);
+  }
+}
+
+function ring(lesson, lead){
+  const msg = lead > 0
+    ? `درس ${lesson.subject} يبدأ بعد ${lead} دقيقة (${fmtTime(lesson.t)})`
+    : `حان موعد درس ${lesson.subject} الآن`;
+  document.getElementById('alert-text').textContent = msg;
+  document.getElementById('alert-banner').classList.remove('hidden');
+  beep();
+  if (navigator.vibrate) navigator.vibrate([300, 150, 300, 150, 300]);
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try { new Notification('منبه الدروس 📚', { body: msg, tag: 'lesson-' + lesson.id }); } catch {}
+  }
+}
+document.getElementById('alert-close').onclick = () =>
+  document.getElementById('alert-banner').classList.add('hidden');
+
+function checkAlarms(){
+  const now = new Date();
+  const today = dayByGetDay[now.getDay()];
+  const dateKey = now.toDateString();
+  schedule.forEach(l => {
+    if (l.day !== today || !isActive(l.id)) return;
+    const [h, m] = l.t.split(':').map(Number);
+    const start = new Date(now); start.setHours(h, m, 0, 0);
+    const fireAt = start.getTime() - state.lead * 60000;
+    const key = `${l.id}|${dateKey}|${state.lead}`;
+    if (now.getTime() >= fireAt && now.getTime() < start.getTime() + 60000 && !state.fired[key]) {
+      state.fired[key] = 1;
+      // تنظيف المفاتيح القديمة
+      Object.keys(state.fired).forEach(k => { if (!k.includes(dateKey)) delete state.fired[k]; });
+      saveState();
+      ring(l, state.lead);
+    }
+  });
+}
+
+/* ---------- عناصر التحكم ---------- */
+const leadSel = document.getElementById('lead');
+leadSel.value = String(state.lead);
+leadSel.onchange = () => { state.lead = Number(leadSel.value); saveState(); syncNative(); };
+
+const notifyBtn = document.getElementById('btn-notify');
+function updateNotifyBtnWeb(){
+  if (!('Notification' in window)) { notifyBtn.textContent = 'الإشعارات غير مدعومة'; notifyBtn.disabled = true; return; }
+  const p = Notification.permission;
+  notifyBtn.textContent = p === 'granted' ? 'الإشعارات مفعّلة ✅' : p === 'denied' ? 'الإشعارات محظورة من المتصفح' : 'تفعيل الإشعارات';
+  notifyBtn.disabled = p !== 'default';
+}
+/* ---------- النسخة الأصلية (APK): تنبيهات مجدولة من نظام أندرويد حتى والتطبيق مغلق ---------- */
+const $ = id => document.getElementById(id);
+const isNative = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
+const LN = window.Capacitor && Capacitor.Plugins && Capacitor.Plugins.LocalNotifications;
+const weekdayNum = { 'الأحد':1,'الاثنين':2,'الثلاثاء':3,'الأربعاء':4,'الخميس':5,'الجمعة':6,'السبت':7 };
+
+async function updateNotifyBtn(){
+  if (!(isNative && LN)) return updateNotifyBtnWeb();
+  try {
+    const p = await LN.checkPermissions();
+    const ok = p.display === 'granted';
+    notifyBtn.textContent = ok ? 'التنبيهات مفعّلة ✅' : 'تفعيل التنبيهات';
+    notifyBtn.disabled = ok;
+  } catch {}
+}
+async function syncNative(){
+  if (!(isNative && LN)) return;
+  try {
+    const pend = await LN.getPending();
+    if (pend.notifications.length) await LN.cancel({ notifications: pend.notifications.map(n => ({ id: n.id })) });
+    const items = schedule.filter(l => isActive(l.id)).map(l => {
+      const [h, m] = l.t.split(':').map(Number);
+      let total = h * 60 + m - state.lead, wd = weekdayNum[l.day];
+      if (total < 0) { total += 1440; wd = wd === 1 ? 7 : wd - 1; }
+      return {
+        id: l.id, channelId: 'lessons', title: 'منبه الدروس 📚',
+        body: state.lead > 0 ? `درس ${l.subject} يبدأ بعد ${state.lead} دقيقة (${fmtTime(l.t)})` : `حان موعد درس ${l.subject} الآن`,
+        schedule: { on: { weekday: wd, hour: Math.floor(total / 60), minute: total % 60 }, allowWhileIdle: true }
+      };
+    });
+    if (items.length) await LN.schedule({ notifications: items });
+  } catch (e) { console.warn(e); }
+}
+notifyBtn.onclick = async () => {
+  unlockAudio();
+  if (isNative && LN) {
+    try {
+      await LN.requestPermissions();
+      const ex = await LN.checkExactNotificationSetting();
+      if (ex.exact_alarm !== 'granted') await LN.changeExactNotificationSetting();
+    } catch {}
+    await updateNotifyBtn(); syncNative();
+  } else { await Notification.requestPermission(); updateNotifyBtn(); }
+};
+
+/* ---------- النصائح ---------- */
+const CATS = {
+  study:{icon:'📖',name:'المذاكرة'}, focus:{icon:'🎯',name:'التركيز'}, time:{icon:'⏰',name:'تنظيم الوقت'},
+  health:{icon:'💪',name:'الصحة'}, exam:{icon:'📝',name:'الامتحانات'}, mind:{icon:'🌟',name:'الدافعية'}
+};
+const TIPS = [
+  {c:'study',t:'ذاكر بطريقة الاسترجاع: أغلق الكتاب وحاول كتابة ما تتذكره، فهذا يثبّت المعلومة أكثر من إعادة القراءة.'},
+  {c:'study',t:'اشرح الدرس بصوت مسموع كأنك تعلّمه لصديق؛ ما لا تستطيع شرحه ببساطة لم تفهمه جيداً بعد.'},
+  {c:'study',t:'وزّع المذاكرة على أيام متفرقة بدل ليلة واحدة؛ التكرار المتباعد يحفظ المعلومة لمدة أطول.'},
+  {c:'study',t:'لخّص الدرس بخط يدك وبكلماتك، وراجع الأسئلة التي أخطأت فيها أكثر من التي أصبتها.'},
+  {c:'focus',t:'جرّب أسلوب بومودورو: 25 دقيقة تركيز كامل ثم 5 دقائق راحة، وبعد أربع جولات خذ راحة أطول.'},
+  {c:'focus',t:'ضع الهاتف في غرفة أخرى أثناء المذاكرة؛ مجرد وجوده أمامك يشتت انتباهك.'},
+  {c:'focus',t:'ابدأ بالمادة الأصعب حين يكون ذهنك في أفضل حالاته، واترك الأخف لآخر الجلسة.'},
+  {c:'focus',t:'جهّز مكانك قبل البدء: ماء وكتبك وإضاءة جيدة، حتى لا تقاطع نفسك في منتصف الدرس.'},
+  {c:'time',t:'اكتب مهام الغد قبل النوم؛ ستبدأ يومك وأنت تعرف ما ستفعله دون تردد.'},
+  {c:'time',t:'قسّم الدرس الكبير إلى أجزاء صغيرة؛ البدء بمهمة صغيرة أسهل بكثير من مواجهة مهمة ضخمة.'},
+  {c:'time',t:'إذا كانت المهمة تستغرق دقيقتين أو أقل فأنجزها فوراً ولا تؤجلها.'},
+  {c:'time',t:'خصّص وقتاً ثابتاً كل يوم للمذاكرة؛ العادة المنتظمة تغنيك عن انتظار الحماس.'},
+  {c:'health',t:'نم من 8 إلى 10 ساعات؛ في النوم يثبّت الدماغ ما تعلمته خلال اليوم.'},
+  {c:'health',t:'اشرب الماء بانتظام؛ العطش الخفيف يقلل التركيز ويُتعب المزاج.'},
+  {c:'health',t:'تحرّك 10 دقائق بين الجلسات بمشي أو تمدد؛ ذلك يجدد نشاط ذهنك.'},
+  {c:'health',t:'تناول فطوراً صحياً قبل الدروس الصباحية، وقلّل السكريات التي يعقبها خمول.'},
+  {c:'exam',t:'حلّ نماذج امتحانات سابقة بنفس زمن الامتحان لتعتاد على الوقت والضغط.'},
+  {c:'exam',t:'اقرأ الأسئلة كلها أولاً وابدأ بما تعرفه جيداً؛ تكسب الثقة والوقت معاً.'},
+  {c:'exam',t:'اترك آخر خمس دقائق لمراجعة إجاباتك والتأكد من أنك لم تترك سؤالاً فارغاً.'},
+  {c:'exam',t:'في الليلة السابقة راجع الخطوط العريضة فقط ثم نم جيداً، ولا تبدأ مادة جديدة.'},
+  {c:'mind',t:'الخطأ ليس فشلاً بل إشارة لما يحتاج مراجعة؛ كل خطأ تصححه يقرّبك من الإتقان.'},
+  {c:'mind',t:'كافئ نفسك بعد كل هدف صغير؛ المكافأة تجعل الاستمرار على العادة أسهل.'},
+  {c:'mind',t:'لا تقارن نفسك بغيرك، قارن نفسك بما كنت عليه الأسبوع الماضي.'},
+  {c:'mind',t:'20 دقيقة كل يوم أفضل من 5 ساعات مرة في الشهر؛ المثابرة تصنع الفرق.'}
+];
+let tab = 'schedule', tipCat = 'all', tipIdx = new Date().getDate() % TIPS.length, playing = true, prog = 0;
+const tipsNow = () => TIPS.filter(t => tipCat === 'all' || t.c === tipCat);
+
+function showFeature(i, instant){
+  const list = tipsNow();
+  tipIdx = (i + list.length) % list.length;
+  const t = list[tipIdx], el = $('tf-text'), apply = () => {
+    el.textContent = t.t;
+    $('tf-cat').textContent = CATS[t.c].icon + ' ' + CATS[t.c].name;
+    $('tf-count').textContent = `${tipIdx + 1} / ${list.length}`;
+    el.style.opacity = 1;
+  };
+  prog = 0; $('tf-bar').style.width = '0';
+  if (instant) return apply();
+  el.style.opacity = 0; setTimeout(apply, 200);
+}
+function renderTipsList(){
+  const chip = (k, label) => `<button data-cat="${k}" class="flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold ${tipCat === k ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 border border-gray-200'}">${label}</button>`;
+  $('tip-chips').innerHTML = chip('all', 'الكل') + Object.entries(CATS).map(([k, v]) => chip(k, v.icon + ' ' + v.name)).join('');
+  $('tip-list').innerHTML = tipsNow().map((t, i) => `
+    <button data-i="${i}" class="w-full text-start bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex gap-3">
+      <span class="w-10 h-10 flex-shrink-0 rounded-xl bg-indigo-50 flex items-center justify-center text-xl">${CATS[t.c].icon}</span>
+      <span><span class="block text-xs font-bold text-indigo-600">${CATS[t.c].name}</span><span class="block text-sm text-gray-700 leading-7 mt-1">${t.t}</span></span>
+    </button>`).join('');
+}
+$('tip-chips').addEventListener('click', e => {
+  const b = e.target.closest('[data-cat]'); if (!b) return;
+  tipCat = b.dataset.cat; renderTipsList(); showFeature(0);
+});
+$('tip-list').addEventListener('click', e => {
+  const b = e.target.closest('[data-i]'); if (!b) return;
+  showFeature(Number(b.dataset.i)); $('view-tips').scrollTo({ top: 0, behavior: 'smooth' });
+});
+$('tf-next').onclick = () => showFeature(tipIdx + 1);
+$('tf-prev').onclick = () => showFeature(tipIdx - 1);
+$('tf-play').onclick = () => { playing = !playing; $('tf-play').textContent = playing ? '⏸' : '▶'; };
+setInterval(() => {
+  if (!playing || document.hidden || tab !== 'tips') return;
+  prog += 100 / 90;                       // تبديل تلقائي كل 9 ثوانٍ
+  $('tf-bar').style.width = Math.min(prog, 100) + '%';
+  if (prog >= 100) showFeature(tipIdx + 1);
+}, 100);
+
+function setTab(t){
+  tab = t;
+  $('view-schedule').classList.toggle('hidden', t !== 'schedule');
+  $('view-tips').classList.toggle('hidden', t !== 'tips');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.className = 'tab-btn py-3 text-sm font-bold ' + (b.dataset.tab === t ? 'text-indigo-600 border-t-2 border-indigo-600' : 'text-gray-500');
+  });
+}
+document.querySelectorAll('.tab-btn').forEach(b => b.onclick = () => setTab(b.dataset.tab));
+$('tip-today').onclick = () => setTab('tips');
+$('tip-today-text').textContent = TIPS[(Math.floor(Date.now() / 864e5) * 7) % TIPS.length].t;
+document.getElementById('btn-test').onclick = () => { unlockAudio(); beep(2); showToast('هكذا سيكون صوت المنبه'); };
+
+/* ---------- التشغيل ---------- */
+updateNotifyBtn();
+renderDays();
+renderLessons();
+renderTipsList();
+showFeature(tipIdx, true);
+setTab('schedule');
+if (isNative && LN) {
+  $('web-note').textContent = '✅ التنبيهات مجدولة من نظام أندرويد وتعمل حتى لو كان التطبيق مغلقاً.';
+  LN.createChannel({ id: 'lessons', name: 'تنبيهات الدروس', importance: 5, vibration: true, visibility: 1 }).catch(() => {});
+  syncNative();
+} else {
+  checkAlarms();
+  setInterval(checkAlarms, 15000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkAlarms(); });
+}
+</script>
+</body>
+</html>
