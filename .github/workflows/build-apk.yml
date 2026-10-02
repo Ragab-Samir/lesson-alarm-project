@@ -30,6 +30,9 @@ jobs:
         java-version: '17'
         distribution: 'zulu'
 
+    - name: Add Android Platform
+      run: npx cap add android
+
     - name: Sync Capacitor with Android
       run: npx cap sync android
 
